@@ -1,6 +1,3 @@
-import tensorflow as tf
-
-
 def create_masks(inp, tar):
     # Encoder padding mask
     enc_padding_mask = create_padding_mask(inp)
@@ -44,5 +41,5 @@ def create_padding_mask(sparse_input_sequence):
         padding_mask: boolean mask where 1s indicates padding. e.g [1, 0, 0, 1, 0, 0] for the example input
     """
     mask = tf.cast(tf.math.equal(sparse_input_sequence, 0), tf.float32)
-    return mask
+    return mask[:, tf.newaxis, tf.newaxis, :]
     
