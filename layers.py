@@ -4,6 +4,7 @@ import tensorflow as tf
 class Encoder(tf.keras.layers.Layer):
     def __init__(self, input_vocab_size, d_model, n_layers, n_heads, d_ff, dropout_rate=0.1):
         super().__init__()
+        self.d_model = d_model
         self.embedding = tf.keras.layers.Embedding(input_vocab_size, d_model)
         self.position_encoding = PositionalEncoding()
         self.encoder_layers = [EncoderLayer(d_model, n_heads, d_ff, dropout_rate) for _ in range(n_layers)]
@@ -15,6 +16,7 @@ class Encoder(tf.keras.layers.Layer):
             position_encoded_embeddings: shape (batch size, sequence length, embedding dimension)
         """
         x = self.embedding(x)
+        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
         x = self.position_encoding(x)
         x = self.dropout(x)
         for encoder_layer in self.encoder_layers:
@@ -49,6 +51,7 @@ class EncoderLayer(tf.keras.layers.Layer):
 class Decoder(tf.keras.layers.Layer):
     def __init__(self, output_vocab_size, d_model, n_layers, n_heads, d_ff, dropout_rate=0.1):
         super().__init__()
+        self.d_model = d_model
         self.embedding = tf.keras.layers.Embedding(output_vocab_size, d_model)
         self.position_encoding = PositionalEncoding()
         self.decoder_layers = [DecoderLayer(d_model, n_heads, d_ff, dropout_rate) for _ in range(n_layers)]
@@ -56,6 +59,7 @@ class Decoder(tf.keras.layers.Layer):
     
     def call(self, x, encoder_output, is_training, look_ahead_mask, padding_mask):
         x = self.embedding(x)
+        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
         x = self.position_encoding(x)
         x = self.dropout(x)
         for decoder_layer in self.decoder_layers:
@@ -134,7 +138,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         
         attention = self.calculate_attention(q, k, v, mask) # (batch_size, n_heads, seq_len_q, depth)
         attention = tf.transpose(attention, perm=[0, 2, 1, 3]) # (batch_size, seq_len_q, n_heads, depth)
-        attention = tf.reshape(attention, [batch_size, -1, self.d_model])
+        attention = tf.reshape(attention, (batch_size, -1, self.d_model))
         
         return self.wout(attention)
         
@@ -162,9 +166,9 @@ class MultiHeadAttention(tf.keras.layers.Layer):
 
         logit = tf.matmul(q, k, transpose_b=True) # Q matmul K_Tranpose
         sqrt_d = tf.math.sqrt(tf.cast(self.depth, tf.float32)) # sqrt(d)
-        logit = tf.truediv(logit, sqrt_d) # QK_t/sqrt(d_v)
-        if(mask is not None):
-            logit += mask*1e-9 # make logits of words that shouldn't be used -inf, so after softmax they will be close to 0
+        logit = logit / sqrt_d # QK_t/sqrt(d_v)
+        if mask is not None:
+            logit += (mask * -1e9) # make logits of words that shouldn't be used -inf, so after softmax they will be close to 0
         attention_weights = tf.nn.softmax(logit, axis=-1)
         attention = tf.matmul(attention_weights, v)
         return attention
@@ -199,6 +203,7 @@ class PositionalEncoding(tf.keras.layers.Layer):
         embeddings += position_encoding
         return embeddings
         
+    
     def create_position_encoding(self, sequence_length, d_embedding):
         """
         Args:
@@ -226,3 +231,5 @@ class PositionalEncoding(tf.keras.layers.Layer):
         position_encodings = tf.concat([sin_position_encodings, cos_position_encodings], axis=-1)
         position_encodings = tf.reshape(position_encodings, (1, sequence_length, d_embedding))
         return position_encodings
+    
+        

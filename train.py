@@ -57,7 +57,7 @@ def main():
     
     # set hyperparameters
     n_layers = 4
-    d_model = 128
+    d_model = 256
     d_ff = 512
     n_heads = 8
 
@@ -110,8 +110,7 @@ def main():
     transformer = Transformer(input_vocab_size, output_vocab_size, d_model, n_layers, n_heads, d_ff, dropout_rate)
     
     # create a checkpoint manager
-    checkpoint_path = os.path.join(os.getcwd(), "checkpoints")
-
+    checkpoint_path = './checkpoints/transformer'
     ckpt = tf.train.Checkpoint(transformer=transformer,
                                optimizer=optimizer)
 
@@ -123,7 +122,7 @@ def main():
         print ('Latest checkpoint restored!!')
      
     # define train loop
-    EPOCHS = 20
+    EPOCHS = 40
     # The @tf.function trace-compiles train_step into a TF graph for faster
     # execution. The function specializes to the precise shape of the argument
     # tensors. To avoid re-tracing due to the variable sequence lengths or variable
@@ -180,3 +179,6 @@ def main():
                                                     train_accuracy.result()))
 
         print ('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+
+if __name__ == '__main__':
+    main()
